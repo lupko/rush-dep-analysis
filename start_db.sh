@@ -10,6 +10,7 @@ if [ ! -f "${DB_FILE}" ]; then
   docker run \
     -v $DATA_DIR:/data \
     -p 64210:64210 \
+    -d \
     -u $(id -u ${USER}):$(id -g ${USER}) \
     cayleygraph/cayley:latest -c /data/deps.yml --init -i /data/deps.nq
 else
@@ -18,6 +19,7 @@ else
   docker run \
     -v $DATA_DIR:/data \
     -p 64210:64210 \
+    -d \
     -u $(id -u ${USER}):$(id -g ${USER}) \
     cayleygraph/cayley:latest -c /data/deps.yml
 fi
