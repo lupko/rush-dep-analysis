@@ -21,10 +21,6 @@ The general idea is as follows:
 4.  Start Cayley frontend: `./start_ui.sh`
 5.  Open `http://localhost:3666` in your browser
 
-## Limitations
-
-Dependencies installed 'globally'
-
 ## Graph
 
 The tooling works with a graph of physically installed package versions and dependencies between them. For
