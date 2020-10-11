@@ -1,0 +1,5 @@
+*.iml
+.idea
+.venv
+data/deps.nq
+data/deps.db/*
