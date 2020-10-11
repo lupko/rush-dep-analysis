@@ -31,7 +31,8 @@ of dependency brought them in.
 > all dependencies originate. The graph does not concern itself with versions of the primary packages.
 
 The dependency graph is represented as a list of [n-quads](https://en.wikipedia.org/wiki/N-Triples). This is one of 
-the formats that Cayley understands.
+the formats that Cayley understands. Bonus is that this is a dialect of RDF; you can use for instance python's `rdflib`
+to read the graph (`rdflib.ConjunctiveGraph()` and use format `turtle`). 
 
 Here is a quick description the content - subject, object and predicate types:
 
@@ -91,7 +92,7 @@ The following dependency predicates are supported:
 -  `depends_prod` - production dependency
 -  `depends_dev` - dev dependency
 -  `depends_peer` - peer dependency
--  `opt_peer` - optional peer dependency (as found in peerDependenciesMeta)
+-  `depends_opt_peer` - optional peer dependency (as found in peerDependenciesMeta)
 
 ## Analyzing the graph
 
@@ -103,7 +104,7 @@ concepts.
 > or do paging using `skip` and `limit` functions. However, there is still limitation where forEach() will always
 > halt after 100 results. It is thus not possible to make some more complex reports with subqueries.  
 
-Here are couple of examples they may help you learn by example.
+Here are couple of examples that may help you learn by example.
 
 ### Trivial stuff
 
@@ -194,7 +195,7 @@ g.V()
     // take the dependency, and run query to obtain its license - follow the `license` predicate
     g.V("<" + id + ">").out("<license>").forEach(function(lic) {
         // print stuff
-        // note: license is stored in graph as value ("MIT", "BSD") and not as an anchor (<>). That
+        // note: license is stored in graph as literal ("MIT", "BSD") and not as an URI (<>). That
         // is why it is accessed as lic.id instead of the further nesting under @id
         g.emit({ package: id, license: lic.id })
     });
