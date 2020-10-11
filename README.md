@@ -99,9 +99,9 @@ The [Gizmo API](https://github.com/cayleygraph/cayley/blob/master/docs/gizmoapi.
 way to work with the graph. The documentation is sparse and it may take some time to familiarize with the
 concepts.
 
-> Note: Cayley has default limit of returning 100 results. When using the UI it is not possible to override this.
-> It is possible to 'page' the data using skip and limit parameters. The Cayley UI is good and convenient for
-> quick exploration but not suitable for 'reporting' use cases.
+> Note: Cayley has default limit of returning 100 results. It is possible to use `getLimit()` to get all results
+> or do paging using `skip` and `limit` functions. However, there is still limitation where forEach() will always
+> halt after 100 results. It is thus not possible to make some more complex reports with subqueries.  
 
 Here are couple of examples they may help you learn by example.
 
