@@ -94,7 +94,7 @@ The following dependency predicates are supported:
 -  `depends_peer` - peer dependency
 -  `depends_opt_peer` - optional peer dependency (as found in peerDependenciesMeta)
 
-## Analyzing the graph
+## Analyzing the graph in Cayley
 
 The [Gizmo API](https://github.com/cayleygraph/cayley/blob/master/docs/gizmoapi.md) is a nice and flexible
 way to work with the graph. The documentation is sparse and it may take some time to familiarize with the
@@ -200,4 +200,59 @@ g.V()
         g.emit({ package: id, license: lic.id })
     });
 })
+```
+
+## Analyzing the graph in sqlite
+
+The `prepare_graph.sh` script will also create `deps.sqlite` database with the graph. See [sqlite.ddl](./graph/sqlite.ddl) to
+learn about available relations and built-in views.
+
+Working with sqlite has better reporting capabilities compared to Cayley approach. However the traversals are somewhat
+tricky and often way slower.
+
+**Find installed versions of some package**
+
+```sql
+SELECT * FROM installed_versions WHERE package = 'node-forge';
+```
+
+**Find packages which have more than one version installed**
+
+```sql
+SELECT * from install_counts WHERE installs > 1 ORDER BY package ASC;
+```
+
+**Get licences of all installed packages**
+
+```sql
+SELECT * from licenses ORDER BY package_version ASC;
+```
+
+**Who depends on particular package version**
+
+```sql
+WITH RECURSIVE reverse_deps(from_id, to_id, type, path, level) AS (
+    SELECT
+        e.from_id,
+        e.to_id,
+        e.type,
+        e.from_id || ',' AS path,
+        1 AS level
+    FROM edge e
+             INNER JOIN node fn on fn.id = e.to_id AND fn.value = 'node-forge/0.7.5'
+    WHERE e.type IN ('depends_dev', 'depends_prod')
+    UNION ALL
+    SELECT
+        e1.from_id,
+        e1.to_id,
+        e1.type,
+        r.path || e1.from_id || ',' AS path,
+        r.level + 1 AS level
+    FROM edge e1, reverse_deps r
+    WHERE e1.to_id = r.from_id AND e1.type IN ('depends_dev', 'depends_prod')
+)
+SELECT n.value AS dependening, MIN(d.level) AS level from reverse_deps d
+INNER JOIN node n ON n.id = d.from_id
+GROUP BY n.value
+ORDER BY level ASC;
 ```

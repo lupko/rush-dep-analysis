@@ -9,3 +9,6 @@ if [ ! -d ".venv" ]; then
 fi
 
 .venv/bin/python graph/discovery.py $*
+
+rm -rf deps.sqlite
+.venv/bin/python graph/convert_graph.py $2/deps.nq $2/deps

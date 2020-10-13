@@ -2,5 +2,8 @@
 .idea
 .venv
 data/deps.nq
+data/pgdata
 data/deps.db/*
 *.sqlite
+*.csv
+*.gephi

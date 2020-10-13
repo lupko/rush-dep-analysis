@@ -1,3 +1,4 @@
+import csv
 import os
 import sys
 import rdflib
@@ -14,7 +15,7 @@ with open(os.path.join(__location__, 'sqlite.ddl')) as f:
 def _initialize_store(to_file):
     global _C
 
-    _C = sqlite3.connect(to_file)
+    _C = sqlite3.connect(to_file + ".sqlite")
     _C.cursor().executescript(_DDL)
 
 
@@ -83,10 +84,18 @@ def create_sqlite_db(from_file, to_file):
     _C.commit()
     _C.close()
 
+    with open(to_file + ".node.csv", 'wt') as f:
+        node_csv = csv.writer(f, dialect='excel')
+        node_csv.writerows(_to_node_rows(nodes))
+
+    with open(to_file + ".edge.csv", 'wt') as f:
+        edge_csv = csv.writer(f, dialect='excel')
+        edge_csv.writerows(edges)
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Specify two arguments: path to file with n-quads and path for sqlite db to create and populate")
+        print("Specify two arguments: path to file with n-quads and prefix for files to create (sqlite and csvs)")
         sys.exit(1)
     else:
         to_file = sys.argv[2]

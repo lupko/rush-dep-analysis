@@ -21,6 +21,8 @@ CREATE INDEX type_idx ON edge(type);
 
 CREATE INDEX from_by_type_idx ON edge(from_id, type);
 CREATE INDEX to_by_type_idx ON edge(to_id, type);
+CREATE INDEX type_and_from_idx ON edge(type, from_id);
+CREATE INDEX type_and_to_idx ON edge(type, to_id);
 
 --
 -- Views
@@ -35,6 +37,17 @@ FROM edge e
          INNER JOIN node fn on e.from_id = fn.id
          INNER JOIN node tn on e.to_id = tn.id
 WHERE e.type == 'has_role';
+
+-- list installed versions for packages
+CREATE VIEW installed_versions AS
+SELECT
+    fn.value AS package,
+    tn.value AS installed_version
+FROM edge e
+         INNER JOIN node fn on e.from_id = fn.id
+         INNER JOIN node tn on e.to_id = tn.id
+WHERE e.type = 'has_version';
+
 
 -- list packages together with the number of installed versions
 CREATE VIEW install_counts AS
