@@ -77,7 +77,7 @@ WHERE type = 'license';
 -- Create stored functions
 --
 
-DROP FUNCTION forward_deps(from_dep text, init_dep_type text[], rec_dep_type text[]);
+DROP FUNCTION IF EXISTS forward_deps(from_dep text, init_dep_type text[], rec_dep_type text[]);
 
 --
 -- Stored function to traverse dependencies of a package in a forward direction. Populates forward_result_table temp
@@ -147,7 +147,7 @@ END;
 $$
     LANGUAGE plpgsql;
 
-DROP FUNCTION reverse_deps(from_dep text, init_dep_type text[], rec_dep_type text[]);
+DROP FUNCTION IF EXISTS reverse_deps(from_dep text, init_dep_type text[], rec_dep_type text[]);
 CREATE OR REPLACE FUNCTION reverse_deps(from_dep text, init_dep_type text[],
                                         rec_dep_type text[] default array []::text[])
     RETURNS TABLE
