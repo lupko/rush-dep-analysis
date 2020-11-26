@@ -52,7 +52,7 @@ def _add_node(val_and_type, nodes):
 
 
 def _to_node_rows(nodes):
-    return [[node_id, value, 1 if node_type is "label" else 0]
+    return [[node_id, value, 1 if node_type == "label" else 0]
             for value, types in nodes.items()
             for node_type, node_id in types.items()
             ]
