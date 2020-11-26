@@ -159,9 +159,35 @@ class PackageJson:
 class PnpmLock:
     def __init__(self, lockfile):
         self._lockfile = lockfile
+        self._rush_projects = self._locate_rush_projects()
+
+    def _locate_rush_projects(self):
+        """
+        rush / pnpm may scope the rush project package with a dependency.
+        instead of the expected key such as file:projects/project.tgz there will be something like
+        file:projects/project.tgz_3rdpartypackage@version
+
+        such scoped entry contains 'id' property with the expected unscoped identifier.
+
+        this function will prance through all the packages and construct a unified mapping between expected
+        rush project entry key and the actual rush project entry key.
+        :return:
+        """
+        result = dict()
+
+        for key, value in self.packages.items():
+            if not key.startswith('file:projects/'):
+                continue
+
+            if 'id' in value and value['id'].startswith('file:projects/'):
+                result[value['id']] = key
+            else:
+                result[key] = key
+
+        return result
 
     @property
-    def packages(self):
+    def packages(self) -> Dict:
         return self._lockfile["packages"]
 
     @property
@@ -172,7 +198,11 @@ class PnpmLock:
         return self._lockfile["packages"]["/".join((package, ver))]
 
     def get_rush_project(self, prj: RushProject):
-        return self._lockfile["packages"][prj.get_lockfile_entry_name()]
+        # one layer of indirection due to dynamic nature of rush project entry keys in the lockfile
+        # see _locate_rush_projects
+        actual_key = self._rush_projects[prj.get_lockfile_entry_name()]
+
+        return self._lockfile["packages"][actual_key]
 
 
 def load_rush_projects(dirname) -> List[RushProject]:
@@ -193,6 +223,7 @@ def load_package_jsons(projects: List[RushProject]) -> List[PackageJson]:
 def load_pnpm_lock(dirname) -> PnpmLock:
     with open(os.path.join(dirname, 'common', 'config', 'rush', 'pnpm-lock.yaml'), 'r') as f:
         return PnpmLock(yaml.load(f))
+
 
 #
 # Code to create full dependency graph as n-quads that can be loaded to cayley
@@ -267,7 +298,7 @@ class PackageNode:
             result.append("<%s> <lives_in> <%s> .\n" % (version_id, pkg_json.repository))
 
         for keyword in pkg_json.keywords:
-           result.append("<%s> <keyword> \"%s\" .\n" % (version_id, keyword))
+            result.append("<%s> <keyword> \"%s\" .\n" % (version_id, keyword))
 
         result.append("<%s> <has_role> <dependency> .\n" % (version_id))
 
@@ -376,8 +407,7 @@ def discover_edges(nodes: Dict[str, PackageNode], pnpm_lock: PnpmLock, rush_proj
 
 def discover_edges_from_rush_packages(nodes: Dict[str, PackageNode], pnpm_lock: PnpmLock,
                                       rush_projects: List[RushProject]):
-
-    rush_pkgs = { pkg.package_name: True for pkg in rush_projects}
+    rush_pkgs = {pkg.package_name: True for pkg in rush_projects}
 
     for project in rush_projects:
         lock_entry = pnpm_lock.get_rush_project(project)
