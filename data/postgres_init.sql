@@ -1,4 +1,18 @@
 --
+-- Multi-schema support. The init script is instrumented to create standalone schema with tables and functions
+-- to work with an instance of dependency graph.
+--
+-- When initializing postgres with dep graph, you can do search-and-replace from the original schema name (e.g. 'deps1') to
+-- a different schema name - meaning the existing schema will be kept as-is and a new schema will be created and populated
+-- with new data
+--
+
+DROP SCHEMA IF EXISTS deps1;
+CREATE SCHEMA deps1;
+
+SET search_path TO deps1;
+
+--
 -- Once you prepare_graph.sh and there are csv files available in this data dir, connect to postgres
 -- and run this script. it will initialize the tables, load data, setup indexes and views.
 --
@@ -77,7 +91,7 @@ WHERE type = 'license';
 -- Create stored functions
 --
 
-DROP FUNCTION IF EXISTS forward_deps(from_dep text, init_dep_type text[], rec_dep_type text[]);
+DROP FUNCTION IF EXISTS deps1.forward_deps(from_dep text, init_dep_type text[], rec_dep_type text[]);
 
 --
 -- Stored function to traverse dependencies of a package in a forward direction. Populates forward_result_table temp
@@ -88,7 +102,7 @@ DROP FUNCTION IF EXISTS forward_deps(from_dep text, init_dep_type text[], rec_de
 -- is to not repeat the large subtrees. However to achieve that, the query must check for _all_ dependencies
 -- traversed so far (which seems to be impossible with CTEs).
 --
-CREATE OR REPLACE FUNCTION forward_deps(from_dep text, init_dep_type text[],
+CREATE OR REPLACE FUNCTION deps1.forward_deps(from_dep text, init_dep_type text[],
                                         rec_dep_type text[] default array []::text[])
     RETURNS TABLE
             (
@@ -101,35 +115,35 @@ DECLARE
     current_level        INTEGER := 1;
     new_deps_to_traverse INTEGER := 0;
 BEGIN
-    CREATE TEMPORARY TABLE IF NOT EXISTS forward_result_table
+    CREATE TEMPORARY TABLE IF NOT EXISTS deps1_forward_result_table
     (
         dep_id INTEGER PRIMARY KEY,
         level  INTEGER
     ) ON COMMIT DROP;
 
-    INSERT INTO forward_result_table (
+    INSERT INTO deps1_forward_result_table (
         SELECT d.dep_id, 1
         FROM (SELECT DISTINCT e.to_id AS dep_id
-              FROM edge e
-                       INNER JOIN node n ON n.id = e.from_id AND n.value = from_dep AND
+              FROM deps1.edge e
+                       INNER JOIN deps1.node n ON n.id = e.from_id AND n.value = from_dep AND
                                             e.type IN (SELECT unnest(init_dep_type)) AND
                                             -- this condition below is important to prevent excessive
                                             -- processing. it's impossible with CTEs
-                                            e.to_id NOT IN (SELECT dep_id FROM forward_result_table)
+                                            e.to_id NOT IN (SELECT dep_id FROM deps1_forward_result_table)
              ) d
     );
 
     LOOP
-        INSERT INTO forward_result_table (
+        INSERT INTO deps1_forward_result_table (
             SELECT d.dep_id AS dep_id, current_level + 1 AS level
             FROM (
                      SELECT DISTINCT e.to_id AS dep_id
-                     FROM edge e
-                              INNER JOIN forward_result_table r
+                     FROM deps1.edge e
+                              INNER JOIN deps1_forward_result_table r
                                          ON r.level = current_level
                                              AND r.dep_id = e.from_id
                                              AND e.type IN (SELECT unnest(rec_dep_type))
-                                             AND e.to_id NOT IN (SELECT dep_id FROM forward_result_table)) d
+                                             AND e.to_id NOT IN (SELECT dep_id FROM deps1_forward_result_table)) d
         );
 
         GET DIAGNOSTICS new_deps_to_traverse = ROW_COUNT;
@@ -141,14 +155,14 @@ BEGIN
     END LOOP;
 
     RETURN QUERY SELECT n.value AS dependency, r.level AS level
-                 FROM forward_result_table r
-                          INNER JOIN node n ON n.id = r.dep_id;
+                 FROM deps1_forward_result_table r
+                          INNER JOIN deps1.node n ON n.id = r.dep_id;
 END;
 $$
     LANGUAGE plpgsql;
 
-DROP FUNCTION IF EXISTS reverse_deps(from_dep text, init_dep_type text[], rec_dep_type text[]);
-CREATE OR REPLACE FUNCTION reverse_deps(from_dep text, init_dep_type text[],
+DROP FUNCTION IF EXISTS deps1.reverse_deps(from_dep text, init_dep_type text[], rec_dep_type text[]);
+CREATE OR REPLACE FUNCTION deps1.reverse_deps(from_dep text, init_dep_type text[],
                                         rec_dep_type text[] default array []::text[])
     RETURNS TABLE
             (
@@ -161,34 +175,34 @@ DECLARE
     current_level        INTEGER := 1;
     new_deps_to_traverse INTEGER := 0;
 BEGIN
-    CREATE TEMPORARY TABLE IF NOT EXISTS reverse_result_table
+    CREATE TEMPORARY TABLE IF NOT EXISTS deps1_reverse_result_table
     (
         dep_id INTEGER PRIMARY KEY,
         level  INTEGER
     ) ON COMMIT DROP;
 
 -- insert
-    INSERT INTO reverse_result_table (
+    INSERT INTO deps1_reverse_result_table (
         SELECT d.dep_id, 1
         FROM (SELECT DISTINCT e.from_id AS dep_id
-              FROM edge e
-                       INNER JOIN node n ON n.id = e.to_id AND n.value = from_dep AND
+              FROM deps1.edge e
+                       INNER JOIN deps1.node n ON n.id = e.to_id AND n.value = from_dep AND
                                             e.type IN (SELECT unnest(init_dep_type)) AND
-                                            e.from_id NOT IN (SELECT dep_id FROM reverse_result_table)
+                                            e.from_id NOT IN (SELECT dep_id FROM deps1_reverse_result_table)
              ) d
     );
 
     LOOP
-        INSERT INTO reverse_result_table (
+        INSERT INTO deps1_reverse_result_table (
             SELECT d.dep_id AS dep_id, current_level + 1 AS level
             FROM (
                      SELECT DISTINCT e.from_id AS dep_id
-                     FROM edge e
-                              INNER JOIN reverse_result_table r
+                     FROM deps1.edge e
+                              INNER JOIN deps1_reverse_result_table r
                                          ON r.level = current_level
                                              AND r.dep_id = e.to_id
                                              AND e.type IN (SELECT unnest(rec_dep_type))
-                                             AND e.from_id NOT IN (SELECT dep_id FROM reverse_result_table)) d
+                                             AND e.from_id NOT IN (SELECT dep_id FROM deps1_reverse_result_table)) d
         );
 
         GET DIAGNOSTICS new_deps_to_traverse = ROW_COUNT;
@@ -200,8 +214,8 @@ BEGIN
     END LOOP;
 
     RETURN QUERY SELECT n.value AS dependency, r.level AS level
-                 FROM reverse_result_table r
-                          INNER JOIN node n ON n.id = r.dep_id;
+                 FROM deps1_reverse_result_table r
+                          INNER JOIN deps1.node n ON n.id = r.dep_id;
 END;
 $$
     LANGUAGE plpgsql;
